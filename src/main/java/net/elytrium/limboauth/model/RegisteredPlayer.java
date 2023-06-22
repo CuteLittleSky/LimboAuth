@@ -24,29 +24,36 @@ import com.velocitypowered.api.proxy.Player;
 import java.net.InetSocketAddress;
 import java.util.Locale;
 import java.util.UUID;
+
 import net.elytrium.limboauth.Settings;
 
 @DatabaseTable(tableName = "AUTH")
 public class RegisteredPlayer {
 
+  public static final String UUID_FIELD = "UUID";
   public static final String NICKNAME_FIELD = "NICKNAME";
   public static final String LOWERCASE_NICKNAME_FIELD = "LOWERCASENICKNAME";
   public static final String HASH_FIELD = "HASH";
   public static final String IP_FIELD = "IP";
+
+  public static final String UUID_TYPE_FIELD = "UUID_TYPE";
   public static final String LOGIN_IP_FIELD = "LOGINIP";
   public static final String TOTP_TOKEN_FIELD = "TOTPTOKEN";
   public static final String REG_DATE_FIELD = "REGDATE";
   public static final String LOGIN_DATE_FIELD = "LOGINDATE";
-  public static final String UUID_FIELD = "UUID";
   public static final String PREMIUM_UUID_FIELD = "PREMIUMUUID";
   public static final String TOKEN_ISSUED_AT_FIELD = "ISSUEDTIME";
 
   private static final BCrypt.Hasher HASHER = BCrypt.withDefaults();
 
+
+  @DatabaseField(id = true, canBeNull = false, columnName = UUID_FIELD)
+  private String uuid = "";
+
   @DatabaseField(canBeNull = false, columnName = NICKNAME_FIELD)
   private String nickname;
 
-  @DatabaseField(id = true, columnName = LOWERCASE_NICKNAME_FIELD)
+  @DatabaseField(columnName = LOWERCASE_NICKNAME_FIELD)
   private String lowercaseNickname;
 
   @DatabaseField(canBeNull = false, columnName = HASH_FIELD)
@@ -55,17 +62,14 @@ public class RegisteredPlayer {
   @DatabaseField(columnName = IP_FIELD)
   private String ip;
 
+  @DatabaseField(columnName = UUID_TYPE_FIELD)
+  private int uuidType;
+
   @DatabaseField(columnName = TOTP_TOKEN_FIELD)
   private String totpToken = "";
 
   @DatabaseField(columnName = REG_DATE_FIELD)
   private Long regDate = System.currentTimeMillis();
-
-  @DatabaseField(columnName = UUID_FIELD)
-  private String uuid = "";
-
-  @DatabaseField(columnName = RegisteredPlayer.PREMIUM_UUID_FIELD)
-  private String premiumUuid = "";
 
   @DatabaseField(columnName = LOGIN_IP_FIELD)
   private String loginIp;
@@ -78,7 +82,7 @@ public class RegisteredPlayer {
 
   @Deprecated
   public RegisteredPlayer(String nickname, String lowercaseNickname,
-      String hash, String ip, String totpToken, Long regDate, String uuid, String premiumUuid, String loginIp, Long loginDate) {
+      String hash, String ip, String totpToken, Long regDate, String uuid, String loginIp, Long loginDate) {
     this.nickname = nickname;
     this.lowercaseNickname = lowercaseNickname;
     this.hash = hash;
@@ -86,25 +90,25 @@ public class RegisteredPlayer {
     this.totpToken = totpToken;
     this.regDate = regDate;
     this.uuid = uuid;
-    this.premiumUuid = premiumUuid;
     this.loginIp = loginIp;
     this.loginDate = loginDate;
   }
 
-  public RegisteredPlayer(Player player) {
-    this(player.getUsername(), player.getUniqueId(), player.getRemoteAddress());
+  public RegisteredPlayer(String nickname, UUID uuid, InetSocketAddress ip, int uuidType) {
+    this(nickname, uuid.toString(), ip.getAddress().getHostAddress(), uuidType);
   }
 
-  public RegisteredPlayer(String nickname, UUID uuid, InetSocketAddress ip) {
-    this(nickname, uuid.toString(), ip.getAddress().getHostAddress());
-  }
-
-  public RegisteredPlayer(String nickname, String uuid, String ip) {
+  public RegisteredPlayer(String nickname, String uuid, String ip, int uuidType) {
     this.nickname = nickname;
     this.lowercaseNickname = nickname.toLowerCase(Locale.ROOT);
     this.uuid = uuid;
+    this.uuidType = uuidType;
     this.ip = ip;
     this.loginIp = ip;
+  }
+
+  public RegisteredPlayer(Player player, int uuidType) {
+    this(player.getUsername(), player.getUniqueId(), player.getRemoteAddress(), uuidType);
   }
 
   public RegisteredPlayer() {
@@ -188,22 +192,6 @@ public class RegisteredPlayer {
     return this.uuid == null ? "" : this.uuid;
   }
 
-  public RegisteredPlayer setPremiumUuid(String premiumUuid) {
-    this.premiumUuid = premiumUuid;
-
-    return this;
-  }
-
-  public RegisteredPlayer setPremiumUuid(UUID premiumUuid) {
-    this.premiumUuid = premiumUuid.toString();
-
-    return this;
-  }
-
-  public String getPremiumUuid() {
-    return this.premiumUuid == null ? "" : this.premiumUuid;
-  }
-
   public String getLoginIp() {
     return this.loginIp == null ? "" : this.loginIp;
   }
@@ -233,4 +221,14 @@ public class RegisteredPlayer {
 
     return this;
   }
+
+  public int getUuidType() {
+    return uuidType;
+  }
+
+  public void setUuidType(int uuidType) {
+    this.uuidType = uuidType;
+  }
+
+
 }

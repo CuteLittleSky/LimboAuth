@@ -108,6 +108,7 @@ import net.elytrium.limboauth.handler.AuthSessionHandler;
 import net.elytrium.limboauth.listener.AuthListener;
 import net.elytrium.limboauth.model.RegisteredPlayer;
 import net.elytrium.limboauth.model.SQLRuntimeException;
+import net.elytrium.limboauth.model.UUIDType;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.ComponentSerializer;
 import net.kyori.adventure.title.Title;
@@ -207,8 +208,6 @@ public class LimboAuth {
     this.reload();
 
     Metrics metrics = this.metricsFactory.make(this, 13700);
-    metrics.addCustomChart(new SimplePie("floodgate_auth", () -> String.valueOf(Settings.IMP.MAIN.FLOODGATE_NEED_AUTH)));
-    metrics.addCustomChart(new SimplePie("premium_auth", () -> String.valueOf(Settings.IMP.MAIN.ONLINE_MODE_NEED_AUTH)));
     metrics.addCustomChart(new SimplePie("db_type", () -> String.valueOf(Settings.IMP.DATABASE.STORAGE_TYPE)));
     metrics.addCustomChart(new SimplePie("load_world", () -> String.valueOf(Settings.IMP.MAIN.LOAD_WORLD)));
     metrics.addCustomChart(new SimplePie("totp_enabled", () -> String.valueOf(Settings.IMP.MAIN.ENABLE_TOTP)));
@@ -227,11 +226,6 @@ public class LimboAuth {
   @SuppressFBWarnings(value = "NP_NULL_ON_SOME_PATH", justification = "LEGACY_AMPERSAND can't be null in velocity.")
   public void reload() {
     Settings.IMP.reload(this.configFile, Settings.IMP.PREFIX);
-
-    if (this.floodgateApi == null && !Settings.IMP.MAIN.FLOODGATE_NEED_AUTH) {
-      throw new IllegalStateException("If you want floodgate players to automatically pass auth (floodgate-need-auth: false),"
-          + " please install floodgate plugin.");
-    }
 
     ComponentSerializer<Component, Component, String> serializer = Settings.IMP.SERIALIZER.getSerializer();
     if (serializer == null) {
@@ -332,7 +326,7 @@ public class LimboAuth {
 
     manager.register("unregister", new UnregisterCommand(this, this.playerDao), "unreg");
     manager.register("forceregister", new ForceRegisterCommand(this, this.playerDao), "forcereg");
-    manager.register("premium", new PremiumCommand(this, this.playerDao), "license");
+    // manager.register("premium", new PremiumCommand(this, this.playerDao), "license");
     manager.register("forceunregister", new ForceUnregisterCommand(this, this.server, this.playerDao), "forceunreg");
     manager.register("changepassword", new ChangePasswordCommand(this, this.playerDao), "changepass", "cp");
     manager.register("forcechangepassword", new ForceChangePasswordCommand(this, this.server, this.playerDao), "forcechangepass", "fcp");
@@ -516,11 +510,7 @@ public class LimboAuth {
   }
 
   public void authPlayer(Player player) {
-    boolean isFloodgate = !Settings.IMP.MAIN.FLOODGATE_NEED_AUTH && this.floodgateApi.isFloodgatePlayer(player.getUniqueId());
-    if (!isFloodgate && this.isForcedPreviously(player.getUsername()) && this.isPremium(player.getUsername())) {
-      player.disconnect(this.reconnectKick);
-      return;
-    }
+    boolean isFloodgateUUID = this.floodgateApi.isFloodgateUUID(player.getUniqueId());
 
     if (this.getBruteforceAttempts(player.getRemoteAddress().getAddress()) >= Settings.IMP.MAIN.BRUTEFORCE_MAX_ATTEMPTS) {
       player.disconnect(this.bruteforceAttemptKick);
@@ -528,24 +518,24 @@ public class LimboAuth {
     }
 
     String nickname = player.getUsername();
-    if (!this.nicknameValidationPattern.matcher((isFloodgate) ? nickname.substring(this.floodgateApi.getPrefixLength()) : nickname).matches()) {
+    if (!this.nicknameValidationPattern.matcher((isFloodgateUUID) ? nickname.substring(this.floodgateApi.getPrefixLength()) : nickname).matches()) {
       player.disconnect(this.nicknameInvalidKick);
       return;
     }
 
-    RegisteredPlayer registeredPlayer = AuthSessionHandler.fetchInfo(this.playerDao, nickname);
+    RegisteredPlayer registeredPlayer = AuthSessionHandler.fetchInfo(this.playerDao, player.getUniqueId());
 
     boolean onlineMode = player.isOnlineMode();
     TaskEvent.Result result = TaskEvent.Result.NORMAL;
 
-    if (onlineMode || isFloodgate) {
+    if (onlineMode || isFloodgateUUID) {
       if (registeredPlayer == null || registeredPlayer.getHash().isEmpty()) {
         RegisteredPlayer nicknameRegisteredPlayer = registeredPlayer;
         registeredPlayer = AuthSessionHandler.fetchInfo(this.playerDao, player.getUniqueId());
 
         if (nicknameRegisteredPlayer != null && registeredPlayer == null && nicknameRegisteredPlayer.getHash().isEmpty()) {
           registeredPlayer = nicknameRegisteredPlayer;
-          registeredPlayer.setPremiumUuid(player.getUniqueId().toString());
+          // registeredPlayer.setPremiumUuid(player.getUniqueId().toString());
           try {
             this.playerDao.update(registeredPlayer);
           } catch (SQLException e) {
@@ -554,7 +544,7 @@ public class LimboAuth {
         }
 
         if (nicknameRegisteredPlayer == null && registeredPlayer == null && Settings.IMP.MAIN.SAVE_PREMIUM_ACCOUNTS) {
-          registeredPlayer = new RegisteredPlayer(player).setPremiumUuid(player.getUniqueId());
+          registeredPlayer = new RegisteredPlayer(player, getUuidTypeFromPlayer(player)).setUuid(player.getUniqueId().toString());
 
           try {
             this.playerDao.create(registeredPlayer);
@@ -636,7 +626,7 @@ public class LimboAuth {
   public void updateLoginData(Player player) throws SQLException {
     String lowercaseNickname = player.getUsername().toLowerCase(Locale.ROOT);
     UpdateBuilder<RegisteredPlayer, String> updateBuilder = this.playerDao.updateBuilder();
-    updateBuilder.where().eq(RegisteredPlayer.LOWERCASE_NICKNAME_FIELD, lowercaseNickname);
+    updateBuilder.where().eq(RegisteredPlayer.UUID_FIELD, player.getUniqueId().toString());
     updateBuilder.updateColumnValue(RegisteredPlayer.LOGIN_IP_FIELD, player.getRemoteAddress().getAddress().getHostAddress());
     updateBuilder.updateColumnValue(RegisteredPlayer.LOGIN_DATE_FIELD, System.currentTimeMillis());
     updateBuilder.update();
@@ -743,9 +733,9 @@ public class LimboAuth {
     try {
       QueryBuilder<RegisteredPlayer, String> premiumCountQuery = this.playerDao.queryBuilder();
       premiumCountQuery.where()
-          .eq(RegisteredPlayer.PREMIUM_UUID_FIELD, uuid.toString())
+          .eq(RegisteredPlayer.UUID_FIELD, uuid.toString())
           .and()
-          .eq(RegisteredPlayer.HASH_FIELD, "");
+          .eq(RegisteredPlayer.UUID_TYPE_FIELD, UUIDType.JAVA_ONLINE);
       premiumCountQuery.setCountOf(true);
 
       return this.playerDao.countOf(premiumCountQuery.prepare()) != 0;
@@ -809,9 +799,6 @@ public class LimboAuth {
         return true;
       }
 
-      if (Settings.IMP.MAIN.ONLINE_MODE_NEED_AUTH) {
-        return false;
-      }
     }
 
     if (wasRateLimited && unknown || wasRateLimited && wasError) {
@@ -824,18 +811,6 @@ public class LimboAuth {
 
     this.premiumCache.put(lowercaseNickname, new CachedPremiumUser(System.currentTimeMillis(), true));
     return true;
-  }
-
-  public boolean isPremium(String nickname) {
-    if (Settings.IMP.MAIN.FORCE_OFFLINE_MODE) {
-      return false;
-    } else {
-      if (Settings.IMP.MAIN.CHECK_PREMIUM_PRIORITY_INTERNAL) {
-        return checkIsPremiumAndCache(nickname, this::isPremiumInternal, this::isPremiumExternal);
-      } else {
-        return checkIsPremiumAndCache(nickname, this::isPremiumExternal, this::isPremiumInternal);
-      }
-    }
   }
 
   public void incrementBruteforceAttempts(InetAddress address) {
@@ -1009,6 +984,14 @@ public class LimboAuth {
     public UUID getUuid() {
       return this.uuid;
     }
+  }
+
+  public int getUuidTypeFromPlayer(Player player) {
+    boolean isFloodgate = this.floodgateApi.isFloodgateUUID(player.getUniqueId());
+    boolean onlineMode = player.isOnlineMode();
+    if (isFloodgate) return UUIDType.BEDROCK;
+    if (onlineMode) return UUIDType.JAVA_ONLINE;
+    return UUIDType.JAVA_OFFLINE;
   }
 
   public enum PremiumState {

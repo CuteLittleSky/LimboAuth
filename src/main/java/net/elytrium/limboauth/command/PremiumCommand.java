@@ -31,6 +31,7 @@ import net.elytrium.limboauth.model.RegisteredPlayer;
 import net.elytrium.limboauth.model.SQLRuntimeException;
 import net.kyori.adventure.text.Component;
 
+@Deprecated
 public class PremiumCommand implements SimpleCommand {
 
   private final LimboAuth plugin;

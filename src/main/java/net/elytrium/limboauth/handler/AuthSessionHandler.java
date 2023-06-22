@@ -206,7 +206,7 @@ public class AuthSessionHandler implements LimboSessionHandler {
         String password = args[1];
         if (this.checkPasswordsRepeat(args) && this.checkPasswordLength(password) && this.checkPasswordStrength(password)) {
           this.saveTempPassword(password);
-          RegisteredPlayer registeredPlayer = new RegisteredPlayer(this.proxyPlayer).setPassword(password);
+          RegisteredPlayer registeredPlayer = new RegisteredPlayer(this.proxyPlayer, plugin.getUuidTypeFromPlayer(this.proxyPlayer)).setPassword(password);
 
           try {
             this.playerDao.create(registeredPlayer);
@@ -540,7 +540,7 @@ public class AuthSessionHandler implements LimboSessionHandler {
 
   public static RegisteredPlayer fetchInfo(Dao<RegisteredPlayer, String> playerDao, UUID uuid) {
     try {
-      List<RegisteredPlayer> playerList = playerDao.queryForEq(RegisteredPlayer.PREMIUM_UUID_FIELD, uuid.toString());
+      List<RegisteredPlayer> playerList = playerDao.queryForEq(RegisteredPlayer.UUID_FIELD, uuid.toString());
       return (playerList != null ? playerList.size() : 0) == 0 ? null : playerList.get(0);
     } catch (SQLException e) {
       throw new SQLRuntimeException(e);
@@ -555,6 +555,7 @@ public class AuthSessionHandler implements LimboSessionHandler {
       throw new SQLRuntimeException(e);
     }
   }
+
 
   /**
    * Use {@link RegisteredPlayer#genHash(String)} or {@link RegisteredPlayer#setPassword}

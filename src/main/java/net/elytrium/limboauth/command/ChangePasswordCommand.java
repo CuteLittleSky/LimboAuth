@@ -23,6 +23,8 @@ import com.velocitypowered.api.command.CommandSource;
 import com.velocitypowered.api.command.SimpleCommand;
 import com.velocitypowered.api.proxy.Player;
 import java.sql.SQLException;
+import java.util.UUID;
+
 import net.elytrium.commons.kyori.serialization.Serializer;
 import net.elytrium.limboauth.LimboAuth;
 import net.elytrium.limboauth.Settings;
@@ -64,8 +66,9 @@ public class ChangePasswordCommand implements SimpleCommand {
     String[] args = invocation.arguments();
 
     if (source instanceof Player) {
+      UUID uuid = ((Player) source).getUniqueId();
       String username = ((Player) source).getUsername();
-      RegisteredPlayer player = AuthSessionHandler.fetchInfo(this.playerDao, username);
+      RegisteredPlayer player = AuthSessionHandler.fetchInfo(this.playerDao, uuid);
 
       if (player == null) {
         source.sendMessage(this.notRegistered);

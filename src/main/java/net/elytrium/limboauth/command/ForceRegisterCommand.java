@@ -54,6 +54,7 @@ public class ForceRegisterCommand implements SimpleCommand {
 
   @Override
   public void execute(SimpleCommand.Invocation invocation) {
+    /*
     CommandSource source = invocation.source();
     String[] args = invocation.arguments();
 
@@ -74,7 +75,7 @@ public class ForceRegisterCommand implements SimpleCommand {
           return;
         }
 
-        RegisteredPlayer player = new RegisteredPlayer(nickname, "", "").setPassword(password);
+        RegisteredPlayer player = new RegisteredPlayer(nickname, "", "", 1).setPassword(password);
         this.playerDao.create(player);
 
         source.sendMessage(serializer.deserialize(MessageFormat.format(this.successful, nickname)));
@@ -85,6 +86,8 @@ public class ForceRegisterCommand implements SimpleCommand {
     } else {
       source.sendMessage(this.usage);
     }
+
+     */
   }
 
   @Override

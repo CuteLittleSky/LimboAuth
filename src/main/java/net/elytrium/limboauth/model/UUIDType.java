@@ -15,27 +15,12 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package net.elytrium.limboauth.floodgate;
+package net.elytrium.limboauth.model;
 
-import java.util.UUID;
-import org.geysermc.floodgate.api.FloodgateApi;
+public class UUIDType {
 
-/**
- * Holder class for optional floodgate feature, we can't inject of optional plugins without holders due to Velocity structure.
- */
-public class FloodgateApiHolder {
+    public static final int JAVA_ONLINE = 0;
+    public static final int JAVA_OFFLINE = 1;
+    public static final int BEDROCK = 2;
 
-  private final FloodgateApi floodgateApi;
-
-  public FloodgateApiHolder() {
-    this.floodgateApi = FloodgateApi.getInstance();
-  }
-
-  public boolean isFloodgateUUID(UUID uuid) {
-    return this.floodgateApi.isFloodgateId(uuid);
-  }
-
-  public int getPrefixLength() {
-    return this.floodgateApi.getPlayerPrefix().length();
-  }
 }

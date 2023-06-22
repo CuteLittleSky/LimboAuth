@@ -77,13 +77,6 @@ public class Settings extends YamlConfig {
         "Players with premium nicknames should register/auth if this option is enabled",
         "Players with premium nicknames must login with a premium Minecraft account if this option is disabled",
     })
-    public boolean ONLINE_MODE_NEED_AUTH = true;
-    @Comment("Needs floodgate plugin if disabled.")
-    public boolean FLOODGATE_NEED_AUTH = true;
-    @Comment("TOTALLY disables hybrid auth feature")
-    public boolean FORCE_OFFLINE_MODE = false;
-    @Comment("Forces all players to get offline uuid")
-    public boolean FORCE_OFFLINE_UUID = false;
     @Comment("If enabled, the plugin will firstly check whether the player is premium through the local database, and secondly through Mojang API.")
     public boolean CHECK_PREMIUM_PRIORITY_INTERNAL = true;
     @Comment("Delay in milliseconds before sending auth-confirming titles and messages to the player. (login-premium-title, login-floodgate, etc.)")
@@ -105,7 +98,7 @@ public class Settings extends YamlConfig {
     @Comment("Used in unregister and premium commands.")
     public String CONFIRM_KEYWORD = "confirm";
     @Comment("This prefix will be added to offline mode players nickname")
-    public String OFFLINE_MODE_PREFIX = "";
+    public String OFFLINE_MODE_PREFIX = "OF_";
     @Comment("This prefix will be added to online mode players nickname")
     public String ONLINE_MODE_PREFIX = "";
     @Comment({
