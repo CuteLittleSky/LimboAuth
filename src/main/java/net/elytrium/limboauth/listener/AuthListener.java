@@ -66,10 +66,17 @@ public class AuthListener {
 
   @Subscribe
   public void onPreLoginEvent(PreLoginEvent event) {
-    if (!event.getUsername().startsWith("OF_")) {
+    if (event.getUsername().toLowerCase().startsWith(Settings.IMP.MAIN.BEDROCK_PREFIX.toLowerCase())) {
+      event.setResult(PreLoginEvent.PreLoginComponentResult.denied(plugin.getWrongNicknamePrefixKick()));
+    }
+    if (Settings.IMP.MAIN.ONLY_OFFLINE_MODE) {
       event.setResult(PreLoginEvent.PreLoginComponentResult.forceOnlineMode());
     } else {
-      event.setResult(PreLoginEvent.PreLoginComponentResult.forceOfflineMode());
+      if (!event.getUsername().startsWith("OF_")) {
+        event.setResult(PreLoginEvent.PreLoginComponentResult.forceOnlineMode());
+      } else {
+        event.setResult(PreLoginEvent.PreLoginComponentResult.forceOfflineMode());
+      }
     }
   }
 
@@ -136,8 +143,9 @@ public class AuthListener {
         boolean needUpdate = false;
         String currentUuid = registeredPlayer.getUuid();
 
-        if (!Objects.equals(registeredPlayer.getNickname(), event.getGameProfile().getName())) {
+        if (!registeredPlayer.getNickname().equals(event.getGameProfile().getName())) {
           registeredPlayer.setNickname(event.getGameProfile().getName());
+
           needUpdate = true;
         }
 

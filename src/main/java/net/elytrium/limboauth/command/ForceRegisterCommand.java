@@ -23,11 +23,14 @@ import com.velocitypowered.api.command.SimpleCommand;
 import java.sql.SQLException;
 import java.text.MessageFormat;
 import java.util.Locale;
+
+import com.velocitypowered.api.util.UuidUtils;
 import net.elytrium.commons.kyori.serialization.Serializer;
 import net.elytrium.limboauth.LimboAuth;
 import net.elytrium.limboauth.Settings;
 import net.elytrium.limboauth.model.RegisteredPlayer;
 import net.elytrium.limboauth.model.SQLRuntimeException;
+import net.elytrium.limboauth.model.UUIDType;
 import net.kyori.adventure.text.Component;
 
 public class ForceRegisterCommand implements SimpleCommand {
@@ -54,13 +57,19 @@ public class ForceRegisterCommand implements SimpleCommand {
 
   @Override
   public void execute(SimpleCommand.Invocation invocation) {
-    /*
+
     CommandSource source = invocation.source();
     String[] args = invocation.arguments();
 
     if (args.length == 2) {
       String nickname = args[0];
       String password = args[1];
+
+      if (!nickname.startsWith(Settings.IMP.MAIN.OFFLINE_MODE_PREFIX)) {
+        nickname = Settings.IMP.MAIN.OFFLINE_MODE_PREFIX + nickname;
+      }
+
+      String uuid = UuidUtils.generateOfflinePlayerUuid(nickname).toString();
 
       Serializer serializer = LimboAuth.getSerializer();
       try {
@@ -75,7 +84,7 @@ public class ForceRegisterCommand implements SimpleCommand {
           return;
         }
 
-        RegisteredPlayer player = new RegisteredPlayer(nickname, "", "", 1).setPassword(password);
+        RegisteredPlayer player = new RegisteredPlayer(nickname, uuid, "", UUIDType.JAVA_OFFLINE).setPassword(password);
         this.playerDao.create(player);
 
         source.sendMessage(serializer.deserialize(MessageFormat.format(this.successful, nickname)));
@@ -87,7 +96,7 @@ public class ForceRegisterCommand implements SimpleCommand {
       source.sendMessage(this.usage);
     }
 
-     */
+
   }
 
   @Override

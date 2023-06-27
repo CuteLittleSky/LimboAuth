@@ -53,6 +53,7 @@ import net.kyori.adventure.bossbar.BossBar;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.title.Title;
 import org.checkerframework.checker.nullness.qual.Nullable;
+import org.jetbrains.annotations.NotNull;
 
 public class AuthSessionHandler implements LimboSessionHandler {
 
@@ -65,6 +66,7 @@ public class AuthSessionHandler implements LimboSessionHandler {
   private static Component ipLimitKick;
   private static Component databaseErrorKick;
   private static String wrongNicknameCaseKick;
+
   private static Component timesUp;
   private static Component registerSuccessful;
   @Nullable

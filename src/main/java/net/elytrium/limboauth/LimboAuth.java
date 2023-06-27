@@ -50,35 +50,6 @@ import com.velocitypowered.api.proxy.messages.MinecraftChannelIdentifier;
 import com.velocitypowered.api.scheduler.ScheduledTask;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.whitfin.siphash.SipHasher;
-import java.io.File;
-import java.io.IOException;
-import java.net.InetAddress;
-import java.net.URI;
-import java.net.URISyntaxException;
-import java.net.URLEncoder;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.sql.SQLException;
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
-import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.TimeUnit;
-import java.util.function.Consumer;
-import java.util.function.Function;
-import java.util.regex.Pattern;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import net.elytrium.commons.kyori.serialization.Serializer;
 import net.elytrium.commons.kyori.serialization.Serializers;
 import net.elytrium.commons.utils.reflection.ReflectionException;
@@ -88,21 +59,9 @@ import net.elytrium.limboapi.api.LimboFactory;
 import net.elytrium.limboapi.api.chunk.VirtualWorld;
 import net.elytrium.limboapi.api.command.LimboCommandMeta;
 import net.elytrium.limboapi.api.file.WorldFile;
-import net.elytrium.limboauth.command.ChangePasswordCommand;
-import net.elytrium.limboauth.command.DestroySessionCommand;
-import net.elytrium.limboauth.command.ForceChangePasswordCommand;
-import net.elytrium.limboauth.command.ForceRegisterCommand;
-import net.elytrium.limboauth.command.ForceUnregisterCommand;
-import net.elytrium.limboauth.command.LimboAuthCommand;
-import net.elytrium.limboauth.command.PremiumCommand;
-import net.elytrium.limboauth.command.TotpCommand;
-import net.elytrium.limboauth.command.UnregisterCommand;
+import net.elytrium.limboauth.command.*;
 import net.elytrium.limboauth.dependencies.DatabaseLibrary;
-import net.elytrium.limboauth.event.AuthPluginReloadEvent;
-import net.elytrium.limboauth.event.PreAuthorizationEvent;
-import net.elytrium.limboauth.event.PreEvent;
-import net.elytrium.limboauth.event.PreRegisterEvent;
-import net.elytrium.limboauth.event.TaskEvent;
+import net.elytrium.limboauth.event.*;
 import net.elytrium.limboauth.floodgate.FloodgateApiHolder;
 import net.elytrium.limboauth.handler.AuthSessionHandler;
 import net.elytrium.limboauth.listener.AuthListener;
@@ -118,6 +77,29 @@ import org.bstats.velocity.Metrics;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.slf4j.Logger;
+
+import java.io.File;
+import java.io.IOException;
+import java.net.InetAddress;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.net.URLEncoder;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.sql.SQLException;
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
+import java.util.function.Function;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @Plugin(
     id = "limboauth",
@@ -144,7 +126,7 @@ public class LimboAuth {
   private static Serializer SERIALIZER;
 
   private final Map<String, CachedSessionUser> cachedAuthChecks = new ConcurrentHashMap<>();
-  private final Map<String, CachedPremiumUser> premiumCache = new ConcurrentHashMap<>();
+  // private final Map<String, CachedPremiumUser> premiumCache = new ConcurrentHashMap<>();
   private final Map<InetAddress, CachedBruteforceUser> bruteforceCache = new ConcurrentHashMap<>();
   private final Map<UUID, Runnable> postLoginTasks = new ConcurrentHashMap<>();
   private final Set<String> unsafePasswords = new HashSet<>();
@@ -172,6 +154,8 @@ public class LimboAuth {
   private Component bruteforceAttemptKick;
   private Component nicknameInvalidKick;
   private Component reconnectKick;
+  private Component wrongNicknamePrefixKick;
+
   private ScheduledTask purgeCacheTask;
   private ScheduledTask purgePremiumCacheTask;
   private ScheduledTask purgeBruteforceCacheTask;
@@ -263,6 +247,7 @@ public class LimboAuth {
     this.bruteforceAttemptKick = SERIALIZER.deserialize(Settings.IMP.MAIN.STRINGS.LOGIN_WRONG_PASSWORD_KICK);
     this.nicknameInvalidKick = SERIALIZER.deserialize(Settings.IMP.MAIN.STRINGS.NICKNAME_INVALID_KICK);
     this.reconnectKick = SERIALIZER.deserialize(Settings.IMP.MAIN.STRINGS.RECONNECT_KICK);
+    this.wrongNicknamePrefixKick = SERIALIZER.deserialize(Settings.IMP.MAIN.STRINGS.WRONG_NICKNAME_PREFIX_KICK);
     this.registrationsDisabledKick = SERIALIZER.deserialize(Settings.IMP.MAIN.STRINGS.REGISTRATIONS_DISABLED_KICK);
 
     if (Settings.IMP.MAIN.CHECK_PASSWORD_STRENGTH) {
@@ -282,7 +267,7 @@ public class LimboAuth {
     }
 
     this.cachedAuthChecks.clear();
-    this.premiumCache.clear();
+    // this.premiumCache.clear();
     this.bruteforceCache.clear();
 
     Settings.DATABASE dbConfig = Settings.IMP.DATABASE;
@@ -389,11 +374,14 @@ public class LimboAuth {
       this.purgePremiumCacheTask.cancel();
     }
 
+    /*
     this.purgePremiumCacheTask = this.server.getScheduler()
         .buildTask(this, () -> this.checkCache(this.premiumCache, Settings.IMP.MAIN.PURGE_PREMIUM_CACHE_MILLIS))
         .delay(Settings.IMP.MAIN.PURGE_PREMIUM_CACHE_MILLIS, TimeUnit.MILLISECONDS)
         .repeat(Settings.IMP.MAIN.PURGE_PREMIUM_CACHE_MILLIS, TimeUnit.MILLISECONDS)
         .schedule();
+
+     */
 
     if (this.purgeBruteforceCacheTask != null) {
       this.purgeBruteforceCacheTask.cancel();
@@ -495,7 +483,7 @@ public class LimboAuth {
 
   public void removePlayerFromCache(String username) {
     this.cachedAuthChecks.remove(username.toLowerCase(Locale.ROOT));
-    this.premiumCache.remove(username.toLowerCase(Locale.ROOT));
+    // this.premiumCache.remove(username.toLowerCase(Locale.ROOT));
   }
 
   public boolean needAuth(Player player) {
@@ -745,6 +733,7 @@ public class LimboAuth {
     }
   }
 
+  /*
   @SafeVarargs
   private boolean checkIsPremiumAndCache(String nickname, Function<String, PremiumResponse>... functions) {
     String lowercaseNickname = nickname.toLowerCase(Locale.ROOT);
@@ -812,6 +801,8 @@ public class LimboAuth {
     this.premiumCache.put(lowercaseNickname, new CachedPremiumUser(System.currentTimeMillis(), true));
     return true;
   }
+
+   */
 
   public void incrementBruteforceAttempts(InetAddress address) {
     this.getBruteforceUser(address).incrementAttempts();
@@ -885,6 +876,10 @@ public class LimboAuth {
 
   public Pattern getNicknameValidationPattern() {
     return this.nicknameValidationPattern;
+  }
+
+  public Component getWrongNicknamePrefixKick() {
+    return wrongNicknamePrefixKick;
   }
 
   private static class CachedUser {

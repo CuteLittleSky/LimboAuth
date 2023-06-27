@@ -18,6 +18,7 @@
 package net.elytrium.limboauth.command;
 
 import com.j256.ormlite.dao.Dao;
+import com.j256.ormlite.stmt.DeleteBuilder;
 import com.velocitypowered.api.command.CommandSource;
 import com.velocitypowered.api.command.SimpleCommand;
 import com.velocitypowered.api.proxy.ProxyServer;
@@ -73,7 +74,9 @@ public class ForceUnregisterCommand implements SimpleCommand {
       Serializer serializer = LimboAuth.getSerializer();
       try {
         this.plugin.getServer().getEventManager().fireAndForget(new AuthUnregisterEvent(playerNick));
-        this.playerDao.deleteById(playerNick.toLowerCase(Locale.ROOT));
+        DeleteBuilder<RegisteredPlayer, String> deleteBuilder = this.playerDao.deleteBuilder();
+        deleteBuilder.where().eq(RegisteredPlayer.LOWERCASE_NICKNAME_FIELD, playerNick.toLowerCase(Locale.ROOT));
+        deleteBuilder.delete();
         this.plugin.removePlayerFromCache(playerNick);
         this.server.getPlayer(playerNick).ifPresent(player -> player.disconnect(this.kick));
         source.sendMessage(serializer.deserialize(MessageFormat.format(this.successful, playerNick)));

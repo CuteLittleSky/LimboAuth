@@ -41,7 +41,7 @@ public class RegisteredPlayer {
   public static final String TOTP_TOKEN_FIELD = "TOTPTOKEN";
   public static final String REG_DATE_FIELD = "REGDATE";
   public static final String LOGIN_DATE_FIELD = "LOGINDATE";
-  public static final String PREMIUM_UUID_FIELD = "PREMIUMUUID";
+  // public static final String PREMIUM_UUID_FIELD = "PREMIUMUUID";
   public static final String TOKEN_ISSUED_AT_FIELD = "ISSUEDTIME";
 
   private static final BCrypt.Hasher HASHER = BCrypt.withDefaults();

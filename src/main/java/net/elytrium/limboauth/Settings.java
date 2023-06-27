@@ -73,12 +73,8 @@ public class Settings extends YamlConfig {
     public int MAX_PASSWORD_LENGTH = 71;
     public boolean CHECK_PASSWORD_STRENGTH = true;
     public String UNSAFE_PASSWORDS_FILE = "unsafe_passwords.txt";
-    @Comment({
-        "Players with premium nicknames should register/auth if this option is enabled",
-        "Players with premium nicknames must login with a premium Minecraft account if this option is disabled",
-    })
-    @Comment("If enabled, the plugin will firstly check whether the player is premium through the local database, and secondly through Mojang API.")
-    public boolean CHECK_PREMIUM_PRIORITY_INTERNAL = true;
+    @Comment({"Only allow offline mode login"})
+    public boolean ONLY_OFFLINE_MODE = false;
     @Comment("Delay in milliseconds before sending auth-confirming titles and messages to the player. (login-premium-title, login-floodgate, etc.)")
     public int PREMIUM_AND_FLOODGATE_MESSAGES_DELAY = 1250;
     @Comment({
@@ -101,6 +97,8 @@ public class Settings extends YamlConfig {
     public String OFFLINE_MODE_PREFIX = "OF_";
     @Comment("This prefix will be added to online mode players nickname")
     public String ONLINE_MODE_PREFIX = "";
+    @Comment("Java player can't use this prefix")
+    public String BEDROCK_PREFIX = "BE_";
     @Comment({
         "If you want to migrate your database from another plugin, which is not using BCrypt.",
         "You can set an old hash algorithm to migrate from.",
@@ -356,6 +354,7 @@ public class Settings extends YamlConfig {
       @Comment("6 hours by default in ip-limit-valid-time")
       public String IP_LIMIT_KICK = "{PRFX}{NL}{NL}&cYour IP has reached max registered accounts. If this is an error, restart your router, or wait about 6 hours.";
       public String WRONG_NICKNAME_CASE_KICK = "{PRFX}{NL}&cYou should join using username &6{0}&c, not &6{1}&c.";
+      public String WRONG_NICKNAME_PREFIX_KICK = "{PRFX}{NL}&c you can't use this prefix";
 
       public String BOSSBAR = "{PRFX} You have &6{0} &fseconds left to log in.";
       public String TIMES_UP = "{PRFX}{NL}&cAuthorization time is up.";

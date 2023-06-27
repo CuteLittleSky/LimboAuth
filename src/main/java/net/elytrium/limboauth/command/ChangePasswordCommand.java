@@ -31,6 +31,7 @@ import net.elytrium.limboauth.Settings;
 import net.elytrium.limboauth.handler.AuthSessionHandler;
 import net.elytrium.limboauth.model.RegisteredPlayer;
 import net.elytrium.limboauth.model.SQLRuntimeException;
+import net.elytrium.limboauth.model.UUIDType;
 import net.kyori.adventure.text.Component;
 
 public class ChangePasswordCommand implements SimpleCommand {
@@ -94,7 +95,7 @@ public class ChangePasswordCommand implements SimpleCommand {
 
       try {
         UpdateBuilder<RegisteredPlayer, String> updateBuilder = this.playerDao.updateBuilder();
-        updateBuilder.where().eq(RegisteredPlayer.NICKNAME_FIELD, username);
+        updateBuilder.where().eq(RegisteredPlayer.UUID_FIELD, uuid);
         updateBuilder.updateColumnValue(RegisteredPlayer.HASH_FIELD, RegisteredPlayer.genHash(needOldPass ? args[1] : args[0]));
         updateBuilder.update();
 

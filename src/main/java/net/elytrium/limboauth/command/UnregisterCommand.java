@@ -23,6 +23,8 @@ import com.velocitypowered.api.command.SimpleCommand;
 import com.velocitypowered.api.proxy.Player;
 import java.sql.SQLException;
 import java.util.Locale;
+import java.util.UUID;
+
 import net.elytrium.commons.kyori.serialization.Serializer;
 import net.elytrium.limboauth.LimboAuth;
 import net.elytrium.limboauth.Settings;
@@ -70,6 +72,7 @@ public class UnregisterCommand implements SimpleCommand {
       if (args.length == 2) {
         if (this.confirmKeyword.equalsIgnoreCase(args[1])) {
           String username = ((Player) source).getUsername();
+          UUID uuid = ((Player) source).getUniqueId();
           RegisteredPlayer player = AuthSessionHandler.fetchInfo(this.playerDao, username);
           if (player == null) {
             source.sendMessage(this.notRegistered);
@@ -78,7 +81,7 @@ public class UnregisterCommand implements SimpleCommand {
           } else if (AuthSessionHandler.checkPassword(args[0], player, this.playerDao)) {
             try {
               this.plugin.getServer().getEventManager().fireAndForget(new AuthUnregisterEvent(username));
-              this.playerDao.deleteById(username.toLowerCase(Locale.ROOT));
+              this.playerDao.deleteById(uuid.toString());
               this.plugin.removePlayerFromCache(username);
               ((Player) source).disconnect(this.successful);
             } catch (SQLException e) {
