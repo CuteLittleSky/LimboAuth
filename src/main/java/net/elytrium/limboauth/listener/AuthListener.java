@@ -17,6 +17,8 @@
 
 package net.elytrium.limboauth.listener;
 
+import com.google.common.cache.Cache;
+import com.google.common.cache.CacheBuilder;
 import com.j256.ormlite.dao.Dao;
 import com.j256.ormlite.stmt.UpdateBuilder;
 import com.velocitypowered.api.event.PostOrder;
@@ -35,10 +37,16 @@ import com.velocitypowered.proxy.protocol.packet.ServerLogin;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.sql.SQLException;
+import java.text.MessageFormat;
+import java.time.Duration;
+import java.time.temporal.ChronoUnit;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+
+import net.elytrium.commons.kyori.serialization.Serializer;
 import net.elytrium.commons.utils.reflection.ReflectionException;
 import net.elytrium.limboapi.api.event.LoginLimboRegisterEvent;
 import net.elytrium.limboauth.LimboAuth;
@@ -48,6 +56,7 @@ import net.elytrium.limboauth.handler.AuthSessionHandler;
 import net.elytrium.limboauth.model.RegisteredPlayer;
 import net.elytrium.limboauth.model.SQLRuntimeException;
 import net.elytrium.limboauth.model.UUIDType;
+import net.kyori.adventure.text.Component;
 
 // TODO: Customizable events priority
 public class AuthListener {
@@ -58,6 +67,12 @@ public class AuthListener {
   private final LimboAuth plugin;
   private final Dao<RegisteredPlayer, String> playerDao;
   private final FloodgateApiHolder floodgateApi;
+
+  private final Cache<String, String> loginFailurePlayers = CacheBuilder
+          .newBuilder()
+          .expireAfterWrite(Duration.of(60, ChronoUnit.SECONDS)).build();
+
+
   public AuthListener(LimboAuth plugin, Dao<RegisteredPlayer, String> playerDao, FloodgateApiHolder floodgateApi) {
     this.plugin = plugin;
     this.playerDao = playerDao;
@@ -75,7 +90,22 @@ public class AuthListener {
       if (!event.getUsername().startsWith("OF_")) {
         event.setResult(PreLoginEvent.PreLoginComponentResult.forceOnlineMode());
       } else {
+        String lastName = loginFailurePlayers.getIfPresent(event.getConnection().getRemoteAddress().getHostName());
+
+        if (lastName != null && lastName.equals(event.getUsername())) {
+          Serializer serializer = LimboAuth.getSerializer();
+          event.setResult(PreLoginEvent.PreLoginComponentResult.denied(serializer.deserialize(MessageFormat.format(Settings.IMP.MAIN.STRINGS.NOT_PREMIUM, event.getUsername()))));
+          loginFailurePlayers.invalidate(event.getConnection().getRemoteAddress().getHostName());
+        }
         event.setResult(PreLoginEvent.PreLoginComponentResult.forceOfflineMode());
+        plugin.getServer().getScheduler()
+                .buildTask(plugin, () -> {
+                  if (!event.getConnection().isActive()) {
+                    loginFailurePlayers.put(event.getConnection().getRemoteAddress().getHostName(), event.getUsername());
+                  }
+                })
+                .delay(Duration.of(6, ChronoUnit.SECONDS))
+                .schedule();
       }
     }
   }

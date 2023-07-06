@@ -408,7 +408,7 @@ public class Settings extends YamlConfig {
 
       public String PREMIUM_SUCCESSFUL = "{PRFX}{NL}&aSuccessfully changed account state to &6PREMIUM&a!";
       public String ALREADY_PREMIUM = "{PRFX} &cYour account is already &6PREMIUM&c!";
-      public String NOT_PREMIUM = "{PRFX} &cYour account is not &6PREMIUM&c!";
+      public String NOT_PREMIUM = "{PRFX} &c你的账号或许不是一个正版账号 &e如果你不是个正版玩家,需要手动在名字前面加个OF_&a(例如OF_{0})";
       public String PREMIUM_USAGE = "{PRFX} Usage: &6/premium <current password> confirm";
 
       public String EVENT_CANCELLED = "{PRFX} Authorization event was cancelled";
