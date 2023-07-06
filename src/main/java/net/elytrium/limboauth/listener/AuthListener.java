@@ -107,12 +107,12 @@ public class AuthListener {
 
   @Subscribe
   public void onPostLogin(PostLoginEvent event) {
-    Map<UUID, Runnable> postLoginTasks = this.plugin.getPostLoginTasks();
     UUID uuid = event.getPlayer().getUniqueId();
-    if (postLoginTasks.containsKey(uuid)) {
+    Runnable postLoginTask = this.plugin.getPostLoginTasks().remove(uuid);
+    if (postLoginTask != null) {
       // We need to delay for player's client to finish switching the server, it takes a little time.
       this.plugin.getServer().getScheduler()
-          .buildTask(this.plugin, () -> postLoginTasks.get(uuid).run())
+          .buildTask(this.plugin, postLoginTask)
           .delay(Settings.IMP.MAIN.PREMIUM_AND_FLOODGATE_MESSAGES_DELAY, TimeUnit.MILLISECONDS)
           .schedule();
     }
