@@ -36,13 +36,12 @@ import com.velocitypowered.proxy.connection.client.LoginInboundConnection;
 import com.velocitypowered.proxy.protocol.packet.ServerLogin;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
+import java.lang.reflect.Field;
 import java.sql.SQLException;
 import java.text.MessageFormat;
 import java.time.Duration;
 import java.time.temporal.ChronoUnit;
-import java.util.Map;
-import java.util.Objects;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
@@ -70,7 +69,8 @@ public class AuthListener {
 
   private final Cache<String, String> loginFailurePlayers = CacheBuilder
           .newBuilder()
-          .expireAfterWrite(Duration.of(60, ChronoUnit.SECONDS)).build();
+          .expireAfterWrite(Duration.of(20, ChronoUnit.SECONDS))
+          .build();
 
 
   public AuthListener(LimboAuth plugin, Dao<RegisteredPlayer, String> playerDao, FloodgateApiHolder floodgateApi) {
@@ -79,33 +79,58 @@ public class AuthListener {
     this.floodgateApi = floodgateApi;
   }
 
-  @Subscribe
-  public void onPreLoginEvent(PreLoginEvent event) {
+  @Subscribe(order = PostOrder.FIRST)
+  public void onPreLoginEvent(PreLoginEvent event) throws SQLException {
     if (event.getUsername().toLowerCase().startsWith(Settings.IMP.MAIN.BEDROCK_PREFIX.toLowerCase())) {
       event.setResult(PreLoginEvent.PreLoginComponentResult.denied(plugin.getWrongNicknamePrefixKick()));
     }
     if (Settings.IMP.MAIN.ONLY_OFFLINE_MODE) {
-      event.setResult(PreLoginEvent.PreLoginComponentResult.forceOnlineMode());
+      event.setResult(PreLoginEvent.PreLoginComponentResult.forceOfflineMode());
     } else {
       if (!event.getUsername().startsWith("OF_")) {
-        event.setResult(PreLoginEvent.PreLoginComponentResult.forceOnlineMode());
-      } else {
+
         String lastName = loginFailurePlayers.getIfPresent(event.getConnection().getRemoteAddress().getHostName());
+
 
         if (lastName != null && lastName.equals(event.getUsername())) {
           Serializer serializer = LimboAuth.getSerializer();
-          event.setResult(PreLoginEvent.PreLoginComponentResult.denied(serializer.deserialize(MessageFormat.format(Settings.IMP.MAIN.STRINGS.NOT_PREMIUM, event.getUsername()))));
+          List<RegisteredPlayer> playerList = playerDao.queryForEq(RegisteredPlayer.LOWERCASE_NICKNAME_FIELD, event.getUsername().toLowerCase(Locale.ROOT));
+          if (playerList != null && playerList.size() > 0) {
+            if (playerList.get(0).getUuidType() == UUIDType.JAVA_ONLINE) {
+
+
+
+              event.setResult(PreLoginEvent.PreLoginComponentResult.forceOnlineMode());
+              return;
+            }
+          }
+
+          event.setResult(PreLoginEvent.PreLoginComponentResult.forceOfflineMode());
+          try {
+            Field usernameField = PreLoginEvent.class.getDeclaredField("username");
+            usernameField.setAccessible(true);
+            usernameField.set(event, Settings.IMP.MAIN.OFFLINE_MODE_PREFIX + event.getUsername());
+          }
+          catch (NoSuchFieldException | IllegalAccessException e) {
+            e.printStackTrace();
+          }
+
+          // event.setResult(PreLoginEvent.PreLoginComponentResult.denied(serializer.deserialize(MessageFormat.format(Settings.IMP.MAIN.STRINGS.NOT_PREMIUM, event.getUsername()))));
           loginFailurePlayers.invalidate(event.getConnection().getRemoteAddress().getHostName());
+          return;
         }
-        event.setResult(PreLoginEvent.PreLoginComponentResult.forceOfflineMode());
+        event.setResult(PreLoginEvent.PreLoginComponentResult.forceOnlineMode());
+
         plugin.getServer().getScheduler()
                 .buildTask(plugin, () -> {
                   if (!event.getConnection().isActive()) {
                     loginFailurePlayers.put(event.getConnection().getRemoteAddress().getHostName(), event.getUsername());
                   }
                 })
-                .delay(Duration.of(6, ChronoUnit.SECONDS))
+                .delay(Duration.of(4, ChronoUnit.SECONDS))
                 .schedule();
+      } else {
+        event.setResult(PreLoginEvent.PreLoginComponentResult.forceOfflineMode());
       }
     }
   }
@@ -158,16 +183,17 @@ public class AuthListener {
   @Subscribe(order = PostOrder.FIRST)
   public void onGameProfileRequest(GameProfileRequestEvent event) {
     if (!event.isOnlineMode() && !Settings.IMP.MAIN.OFFLINE_MODE_PREFIX.isEmpty()) {
-      if (!event.getOriginalProfile().getName().startsWith(Settings.IMP.MAIN.OFFLINE_MODE_PREFIX)) {
+      if (!event.getGameProfile().getName().startsWith(Settings.IMP.MAIN.OFFLINE_MODE_PREFIX)) {
         UUID newUuid = UuidUtils.generateOfflinePlayerUuid(Settings.IMP.MAIN.OFFLINE_MODE_PREFIX + event.getUsername());
         event.setGameProfile(event.getGameProfile().withName(Settings.IMP.MAIN.OFFLINE_MODE_PREFIX + event.getUsername()).withId(newUuid));
+
       }
     }
-
     if (event.isOnlineMode() && !Settings.IMP.MAIN.ONLINE_MODE_PREFIX.isEmpty()) {
-      event.setGameProfile(event.getOriginalProfile().withName(Settings.IMP.MAIN.ONLINE_MODE_PREFIX + event.getUsername()));
+      event.setGameProfile(event.getGameProfile().withName(Settings.IMP.MAIN.ONLINE_MODE_PREFIX + event.getUsername()));
     }
-    if (this.floodgateApi != null && this.floodgateApi.isFloodgateUUID(event.getOriginalProfile().getId())) {
+
+    if (this.floodgateApi != null && this.floodgateApi.isFloodgateUUID(event.getGameProfile().getId())) {
       RegisteredPlayer registeredPlayer = AuthSessionHandler.fetchInfo(this.playerDao, event.getGameProfile().getId());
       if (registeredPlayer != null) {
         boolean needUpdate = false;
@@ -198,7 +224,7 @@ public class AuthListener {
 
       }
     } else if (Settings.IMP.MAIN.SAVE_UUID) {
-      RegisteredPlayer registeredPlayer = AuthSessionHandler.fetchInfo(this.playerDao, event.getOriginalProfile().getId());
+      RegisteredPlayer registeredPlayer = AuthSessionHandler.fetchInfo(this.playerDao, event.getGameProfile().getId());
 
       if (registeredPlayer != null && !registeredPlayer.getUuid().isEmpty()) {
         event.setGameProfile(event.getGameProfile().withId(UUID.fromString(registeredPlayer.getUuid())));

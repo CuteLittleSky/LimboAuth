@@ -80,19 +80,6 @@ public class RegisteredPlayer {
   @DatabaseField(columnName = TOKEN_ISSUED_AT_FIELD)
   private Long tokenIssuedAt = System.currentTimeMillis();
 
-  @Deprecated
-  public RegisteredPlayer(String nickname, String lowercaseNickname,
-      String hash, String ip, String totpToken, Long regDate, String uuid, String loginIp, Long loginDate) {
-    this.nickname = nickname;
-    this.lowercaseNickname = lowercaseNickname;
-    this.hash = hash;
-    this.ip = ip;
-    this.totpToken = totpToken;
-    this.regDate = regDate;
-    this.uuid = uuid;
-    this.loginIp = loginIp;
-    this.loginDate = loginDate;
-  }
 
   public RegisteredPlayer(String nickname, UUID uuid, InetSocketAddress ip, int uuidType) {
     this(nickname, uuid.toString(), ip.getAddress().getHostAddress(), uuidType);

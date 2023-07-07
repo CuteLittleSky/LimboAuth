@@ -187,6 +187,10 @@ public class LimboAuth {
 
   @Subscribe
   public void onProxyInitialization(ProxyInitializeEvent event) {
+    if (server.getConfiguration().isOnlineMode()) {
+      LOGGER.error("Please turn off online-mode");
+      server.shutdown();
+    }
     System.setProperty("com.j256.simplelogging.level", "ERROR");
 
     try {
@@ -504,6 +508,7 @@ public class LimboAuth {
   }
 
   public void authPlayer(Player player) {
+
     boolean isFloodgateUUID = this.floodgateApi.isFloodgateUUID(player.getUniqueId());
 
     if (this.getBruteforceAttempts(player.getRemoteAddress().getAddress()) >= Settings.IMP.MAIN.BRUTEFORCE_MAX_ATTEMPTS) {
@@ -523,6 +528,7 @@ public class LimboAuth {
     TaskEvent.Result result = TaskEvent.Result.NORMAL;
 
     if (onlineMode || isFloodgateUUID) {
+
       if (registeredPlayer == null || registeredPlayer.getHash().isEmpty()) {
         RegisteredPlayer nicknameRegisteredPlayer = registeredPlayer;
         registeredPlayer = AuthSessionHandler.fetchInfo(this.playerDao, player.getUniqueId());
@@ -583,6 +589,7 @@ public class LimboAuth {
       Consumer<TaskEvent> eventConsumer = (event) -> this.sendPlayer(event, null);
       eventManager.fire(new PreRegisterEvent(eventConsumer, result, player)).thenAcceptAsync(eventConsumer);
     } else {
+
       Consumer<TaskEvent> eventConsumer = (event) -> this.sendPlayer(event, ((PreAuthorizationEvent) event).getPlayerInfo());
       eventManager.fire(new PreAuthorizationEvent(eventConsumer, result, player, registeredPlayer)).thenAcceptAsync(eventConsumer);
     }
@@ -992,6 +999,7 @@ public class LimboAuth {
     boolean onlineMode = player.isOnlineMode();
     if (isFloodgate) return UUIDType.BEDROCK;
     if (onlineMode) return UUIDType.JAVA_ONLINE;
+
     return UUIDType.JAVA_OFFLINE;
   }
 
