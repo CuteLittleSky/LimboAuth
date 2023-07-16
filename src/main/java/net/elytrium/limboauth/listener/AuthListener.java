@@ -37,6 +37,7 @@ import com.velocitypowered.proxy.protocol.packet.ServerLogin;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.reflect.Field;
+import java.net.InetSocketAddress;
 import java.sql.SQLException;
 import java.text.MessageFormat;
 import java.time.Duration;
@@ -84,6 +85,14 @@ public class AuthListener {
     if (event.getUsername().toLowerCase().startsWith(Settings.IMP.MAIN.BEDROCK_PREFIX.toLowerCase())) {
       event.setResult(PreLoginEvent.PreLoginComponentResult.denied(plugin.getWrongNicknamePrefixKick()));
     }
+
+    String virtualHostStr = event.getConnection().getVirtualHost().map(InetSocketAddress::getHostString)
+            .map(str -> str.toLowerCase(Locale.ROOT))
+            .orElse("");
+    if (virtualHostStr.contains(Settings.IMP.MAIN.OFFLINE_HOST)) {
+      event.setResult(PreLoginEvent.PreLoginComponentResult.forceOfflineMode());
+      return;
+    }
     if (Settings.IMP.MAIN.ONLY_OFFLINE_MODE) {
       event.setResult(PreLoginEvent.PreLoginComponentResult.forceOfflineMode());
     } else {
@@ -91,43 +100,32 @@ public class AuthListener {
 
         String lastName = loginFailurePlayers.getIfPresent(event.getConnection().getRemoteAddress().getHostName());
 
+        event.setResult(PreLoginEvent.PreLoginComponentResult.forceOnlineMode());
 
         if (lastName != null && lastName.equals(event.getUsername())) {
           Serializer serializer = LimboAuth.getSerializer();
           List<RegisteredPlayer> playerList = playerDao.queryForEq(RegisteredPlayer.LOWERCASE_NICKNAME_FIELD, event.getUsername().toLowerCase(Locale.ROOT));
           if (playerList != null && playerList.size() > 0) {
             if (playerList.get(0).getUuidType() == UUIDType.JAVA_ONLINE) {
-
-
-
               event.setResult(PreLoginEvent.PreLoginComponentResult.forceOnlineMode());
               return;
             }
           }
 
           event.setResult(PreLoginEvent.PreLoginComponentResult.forceOfflineMode());
-          try {
-            Field usernameField = PreLoginEvent.class.getDeclaredField("username");
-            usernameField.setAccessible(true);
-            usernameField.set(event, Settings.IMP.MAIN.OFFLINE_MODE_PREFIX + event.getUsername());
-          }
-          catch (NoSuchFieldException | IllegalAccessException e) {
-            e.printStackTrace();
-          }
-
           // event.setResult(PreLoginEvent.PreLoginComponentResult.denied(serializer.deserialize(MessageFormat.format(Settings.IMP.MAIN.STRINGS.NOT_PREMIUM, event.getUsername()))));
           loginFailurePlayers.invalidate(event.getConnection().getRemoteAddress().getHostName());
           return;
         }
-        event.setResult(PreLoginEvent.PreLoginComponentResult.forceOnlineMode());
 
         plugin.getServer().getScheduler()
                 .buildTask(plugin, () -> {
                   if (!event.getConnection().isActive()) {
                     loginFailurePlayers.put(event.getConnection().getRemoteAddress().getHostName(), event.getUsername());
+                    plugin.getOnlineModeNames().remove(event.getUsername());
                   }
                 })
-                .delay(Duration.of(4, ChronoUnit.SECONDS))
+                .delay(Duration.of(2, ChronoUnit.SECONDS))
                 .schedule();
       } else {
         event.setResult(PreLoginEvent.PreLoginComponentResult.forceOfflineMode());
@@ -180,13 +178,18 @@ public class AuthListener {
     }
   }
 
-  @Subscribe(order = PostOrder.FIRST)
+  @Subscribe(order = PostOrder.EARLY)
   public void onGameProfileRequest(GameProfileRequestEvent event) {
-    if (!event.isOnlineMode() && !Settings.IMP.MAIN.OFFLINE_MODE_PREFIX.isEmpty()) {
-      if (!event.getGameProfile().getName().startsWith(Settings.IMP.MAIN.OFFLINE_MODE_PREFIX)) {
-        UUID newUuid = UuidUtils.generateOfflinePlayerUuid(Settings.IMP.MAIN.OFFLINE_MODE_PREFIX + event.getUsername());
-        event.setGameProfile(event.getGameProfile().withName(Settings.IMP.MAIN.OFFLINE_MODE_PREFIX + event.getUsername()).withId(newUuid));
 
+    if (!event.isOnlineMode()) {
+      plugin.getOnlineModeNames().remove(event.getOriginalProfile().getName());
+    }
+    if (floodgateApi == null || !floodgateApi.isFloodgateUUID(event.getGameProfile().getId())) {
+      if (!event.isOnlineMode() && !Settings.IMP.MAIN.OFFLINE_MODE_PREFIX.isEmpty()) {
+        if (!event.getGameProfile().getName().startsWith(Settings.IMP.MAIN.OFFLINE_MODE_PREFIX)) {
+          UUID newUuid = UuidUtils.generateOfflinePlayerUuid(Settings.IMP.MAIN.OFFLINE_MODE_PREFIX + event.getUsername());
+          event.setGameProfile(event.getGameProfile().withName(Settings.IMP.MAIN.OFFLINE_MODE_PREFIX + event.getUsername()).withId(newUuid));
+        }
       }
     }
     if (event.isOnlineMode() && !Settings.IMP.MAIN.ONLINE_MODE_PREFIX.isEmpty()) {

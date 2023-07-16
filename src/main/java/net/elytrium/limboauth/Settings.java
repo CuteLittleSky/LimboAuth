@@ -75,6 +75,9 @@ public class Settings extends YamlConfig {
     public String UNSAFE_PASSWORDS_FILE = "unsafe_passwords.txt";
     @Comment({"Only allow offline mode login"})
     public boolean ONLY_OFFLINE_MODE = false;
+    @Comment({"offline host"})
+    public String OFFLINE_HOST = "offline";
+
     @Comment("Delay in milliseconds before sending auth-confirming titles and messages to the player. (login-premium-title, login-floodgate, etc.)")
     public int PREMIUM_AND_FLOODGATE_MESSAGES_DELAY = 1250;
     @Comment({

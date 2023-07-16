@@ -36,6 +36,7 @@ import com.j256.ormlite.table.TableUtils;
 import com.velocitypowered.api.command.CommandManager;
 import com.velocitypowered.api.event.EventManager;
 import com.velocitypowered.api.event.Subscribe;
+import com.velocitypowered.api.event.connection.PreLoginEvent;
 import com.velocitypowered.api.event.proxy.ProxyInitializeEvent;
 import com.velocitypowered.api.network.ProtocolVersion;
 import com.velocitypowered.api.plugin.Dependency;
@@ -80,6 +81,7 @@ import org.slf4j.Logger;
 
 import java.io.File;
 import java.io.IOException;
+import java.lang.reflect.Field;
 import java.net.InetAddress;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -165,6 +167,8 @@ public class LimboAuth {
   private Pattern nicknameValidationPattern;
   private Limbo authServer;
 
+  private List<String> onlineMode;
+
   @Inject
   public LimboAuth(Logger logger, ProxyServer server, Metrics.Factory metricsFactory, @DataDirectory Path dataDirectory) {
     setLogger(logger);
@@ -187,9 +191,10 @@ public class LimboAuth {
 
   @Subscribe
   public void onProxyInitialization(ProxyInitializeEvent event) {
-    if (server.getConfiguration().isOnlineMode()) {
-      LOGGER.error("Please turn off online-mode");
-      server.shutdown();
+    try {
+      onlineMode = getOnlineModeFromFactory();
+    } catch (Exception e) {
+      throw new RuntimeException(e);
     }
     System.setProperty("com.j256.simplelogging.level", "ERROR");
 
@@ -508,7 +513,6 @@ public class LimboAuth {
   }
 
   public void authPlayer(Player player) {
-
     boolean isFloodgateUUID = this.floodgateApi.isFloodgateUUID(player.getUniqueId());
 
     if (this.getBruteforceAttempts(player.getRemoteAddress().getAddress()) >= Settings.IMP.MAIN.BRUTEFORCE_MAX_ATTEMPTS) {
@@ -817,6 +821,10 @@ public class LimboAuth {
 
    */
 
+  public List<String> getOnlineModeNames() {
+    return onlineMode;
+  }
+
   public void incrementBruteforceAttempts(InetAddress address) {
     this.getBruteforceUser(address).incrementAttempts();
   }
@@ -1001,6 +1009,20 @@ public class LimboAuth {
     if (onlineMode) return UUIDType.JAVA_ONLINE;
 
     return UUIDType.JAVA_OFFLINE;
+  }
+
+  public List<String> getOnlineModeFromFactory() throws Exception {
+    Class<?> limboAPIClass = Class.forName("net.elytrium.limboapi.LimboAPI");
+    Field listenerField = limboAPIClass.getDeclaredField("loginListener");
+    listenerField.setAccessible(true);
+
+    Object loginListener = listenerField.get(factory);
+
+    Class<?> listenerClass = Class.forName("net.elytrium.limboapi.injection.login.LoginListener");
+    Field listField = listenerClass.getDeclaredField("onlineMode");
+    listField.setAccessible(true);
+
+    return (List<String>) listField.get(loginListener);
   }
 
   public enum PremiumState {
