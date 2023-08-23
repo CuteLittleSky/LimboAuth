@@ -31,9 +31,7 @@ import io.whitfin.siphash.SipHasher;
 import java.nio.charset.StandardCharsets;
 import java.sql.SQLException;
 import java.text.MessageFormat;
-import java.util.List;
-import java.util.Locale;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -162,11 +160,20 @@ public class AuthSessionHandler implements LimboSessionHandler {
         throw new SQLRuntimeException(e);
       }
     } else {
-      if (!this.proxyPlayer.getUsername().equals(this.playerInfo.getNickname())) {
-        this.proxyPlayer.disconnect(serializer.deserialize(
-            MessageFormat.format(wrongNicknameCaseKick, this.playerInfo.getNickname(), this.proxyPlayer.getUsername()))
-        );
-        return;
+      try {
+        List<RegisteredPlayer> playerList = playerDao.queryForEq(RegisteredPlayer.LOWERCASE_NICKNAME_FIELD, this.proxyPlayer.getUsername().toLowerCase(Locale.ROOT));
+        if (playerList != null && !playerList.isEmpty()) {
+          playerList = new ArrayList<>(playerList);
+          playerList.sort(Comparator.comparingLong(RegisteredPlayer::getRegDate));
+          if (!this.proxyPlayer.getUsername().equals(playerList.get(0).getNickname())) {
+            this.proxyPlayer.disconnect(serializer.deserialize(
+                    MessageFormat.format(wrongNicknameCaseKick, playerList.get(0).getNickname(), this.proxyPlayer.getUsername()))
+            );
+            return;
+          }
+        }
+      } catch (SQLException e) {
+        throw new RuntimeException(e);
       }
     }
 
