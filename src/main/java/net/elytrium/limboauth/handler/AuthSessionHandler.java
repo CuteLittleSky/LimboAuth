@@ -134,6 +134,21 @@ public class AuthSessionHandler implements LimboSessionHandler {
 
     Serializer serializer = LimboAuth.getSerializer();
 
+    try {
+      List<RegisteredPlayer> playerList = playerDao.queryForEq(RegisteredPlayer.LOWERCASE_NICKNAME_FIELD, this.proxyPlayer.getUsername().toLowerCase(Locale.ROOT));
+      if (playerList != null && !playerList.isEmpty()) {
+        playerList = new ArrayList<>(playerList);
+        playerList.sort(Comparator.comparingLong(RegisteredPlayer::getRegDate));
+        if (!this.proxyPlayer.getUsername().equals(playerList.get(0).getNickname())) {
+          this.proxyPlayer.disconnect(serializer.deserialize(
+                  MessageFormat.format(wrongNicknameCaseKick, playerList.get(0).getNickname(), this.proxyPlayer.getUsername()))
+          );
+          return;
+        }
+      }
+    } catch (SQLException e) {
+      throw new RuntimeException(e);
+    }
     if (this.playerInfo == null) {
       try {
         String ip = this.proxyPlayer.getRemoteAddress().getAddress().getHostAddress();
@@ -159,24 +174,7 @@ public class AuthSessionHandler implements LimboSessionHandler {
         this.proxyPlayer.disconnect(databaseErrorKick);
         throw new SQLRuntimeException(e);
       }
-    } else {
-      try {
-        List<RegisteredPlayer> playerList = playerDao.queryForEq(RegisteredPlayer.LOWERCASE_NICKNAME_FIELD, this.proxyPlayer.getUsername().toLowerCase(Locale.ROOT));
-        if (playerList != null && !playerList.isEmpty()) {
-          playerList = new ArrayList<>(playerList);
-          playerList.sort(Comparator.comparingLong(RegisteredPlayer::getRegDate));
-          if (!this.proxyPlayer.getUsername().equals(playerList.get(0).getNickname())) {
-            this.proxyPlayer.disconnect(serializer.deserialize(
-                    MessageFormat.format(wrongNicknameCaseKick, playerList.get(0).getNickname(), this.proxyPlayer.getUsername()))
-            );
-            return;
-          }
-        }
-      } catch (SQLException e) {
-        throw new RuntimeException(e);
-      }
     }
-
     boolean bossBarEnabled = !this.loginOnlyByMod && Settings.IMP.MAIN.ENABLE_BOSSBAR;
     int authTime = Settings.IMP.MAIN.AUTH_TIME;
     float multiplier = 1000.0F / authTime;
