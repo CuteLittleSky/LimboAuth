@@ -78,6 +78,7 @@ import org.bstats.velocity.Metrics;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.slf4j.Logger;
+import re.imc.proxytransfercore.ProxyTransferCore;
 
 import java.io.File;
 import java.io.IOException;
@@ -113,7 +114,8 @@ import java.util.stream.Stream;
     },
     dependencies = {
         @Dependency(id = "limboapi"),
-        @Dependency(id = "floodgate", optional = true)
+        @Dependency(id = "floodgate", optional = true),
+        @Dependency(id = "proxytransfercore")
     }
 )
 public class LimboAuth {
@@ -504,6 +506,10 @@ public class LimboAuth {
   public boolean needAuth(Player player) {
     String username = player.getUsername();
     String lowercaseUsername = username.toLowerCase(Locale.ROOT);
+
+    if (ProxyTransferCore.getInstance().isTransferredPlayer(player.getUniqueId())) {
+      return false;
+    }
     if (!this.cachedAuthChecks.containsKey(lowercaseUsername)) {
       return true;
     } else {
@@ -513,6 +519,7 @@ public class LimboAuth {
   }
 
   public void authPlayer(Player player) {
+
     boolean isFloodgateUUID = this.floodgateApi.isFloodgateUUID(player.getUniqueId());
 
     if (this.getBruteforceAttempts(player.getRemoteAddress().getAddress()) >= Settings.IMP.MAIN.BRUTEFORCE_MAX_ATTEMPTS) {

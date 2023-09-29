@@ -57,6 +57,7 @@ import net.elytrium.limboauth.model.RegisteredPlayer;
 import net.elytrium.limboauth.model.SQLRuntimeException;
 import net.elytrium.limboauth.model.UUIDType;
 import net.kyori.adventure.text.Component;
+import re.imc.proxytransfercore.ProxyTransferCore;
 
 // TODO: Customizable events priority
 public class AuthListener {
@@ -82,6 +83,9 @@ public class AuthListener {
 
   @Subscribe(order = PostOrder.FIRST)
   public void onPreLoginEvent(PreLoginEvent event) throws SQLException {
+    if (ProxyTransferCore.getInstance().getTransferredConnectionsUUID().getIfPresent(event.getConnection()) != null) {
+      return;
+    }
     if (event.getUsername().toLowerCase().startsWith(Settings.IMP.MAIN.BEDROCK_PREFIX.toLowerCase())) {
       event.setResult(PreLoginEvent.PreLoginComponentResult.denied(plugin.getWrongNicknamePrefixKick()));
     }
@@ -180,7 +184,10 @@ public class AuthListener {
 
   @Subscribe(order = PostOrder.EARLY)
   public void onGameProfileRequest(GameProfileRequestEvent event) {
-
+    if (ProxyTransferCore.getInstance().isTransferredPlayer(event.getGameProfile().getId())) {
+      System.out.println(event.getGameProfile());
+      return;
+    }
     if (!event.isOnlineMode()) {
       plugin.getOnlineModeNames().remove(event.getOriginalProfile().getName());
     }
