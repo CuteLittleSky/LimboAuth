@@ -185,7 +185,6 @@ public class AuthListener {
   @Subscribe(order = PostOrder.EARLY)
   public void onGameProfileRequest(GameProfileRequestEvent event) {
     if (ProxyTransferCore.getInstance().isTransferredPlayer(event.getGameProfile().getId())) {
-      System.out.println(event.getGameProfile());
       return;
     }
     if (!event.isOnlineMode()) {
