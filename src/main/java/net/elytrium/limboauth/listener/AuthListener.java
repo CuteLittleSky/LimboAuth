@@ -62,8 +62,8 @@ import re.imc.proxytransfercore.ProxyTransferCore;
 // TODO: Customizable events priority
 public class AuthListener {
 
-  private static final MethodHandle DELEGATE_FIELD;
-  private static final MethodHandle LOGIN_FIELD;
+  //private static final MethodHandle DELEGATE_FIELD;
+  //private static final MethodHandle LOGIN_FIELD;
 
   private final LimboAuth plugin;
   private final Dao<RegisteredPlayer, String> playerDao;
@@ -138,6 +138,7 @@ public class AuthListener {
   }
 
   // Temporarily disabled because some clients send UUID version 4 (random UUID) even if the player is cracked
+  /*
   private boolean isPremiumByIdentifiedKey(InboundConnection inbound) throws Throwable {
     LoginInboundConnection inboundConnection = (LoginInboundConnection) inbound;
     InitialInboundConnection initialInbound = (InitialInboundConnection) DELEGATE_FIELD.invokeExact(inboundConnection);
@@ -156,6 +157,7 @@ public class AuthListener {
 
     return holder.version() != 3;
   }
+  */
 
   @Subscribe
   public void onProxyDisconnect(DisconnectEvent event) {
@@ -210,7 +212,6 @@ public class AuthListener {
 
         if (!registeredPlayer.getNickname().equals(event.getGameProfile().getName())) {
           registeredPlayer.setNickname(event.getGameProfile().getName());
-
           needUpdate = true;
         }
 
@@ -234,12 +235,6 @@ public class AuthListener {
       }
     } else if (Settings.IMP.MAIN.SAVE_UUID) {
       RegisteredPlayer registeredPlayer = AuthSessionHandler.fetchInfo(this.playerDao, event.getGameProfile().getId());
-
-      if (registeredPlayer != null && !registeredPlayer.getUuid().isEmpty()) {
-        event.setGameProfile(event.getGameProfile().withId(UUID.fromString(registeredPlayer.getUuid())));
-        return;
-      }
-      registeredPlayer = AuthSessionHandler.fetchInfo(this.playerDao, event.getGameProfile().getId());
 
       if (registeredPlayer != null) {
         boolean needUpdate = false;
@@ -269,7 +264,7 @@ public class AuthListener {
     } else if (event.isOnlineMode()) {
       try {
         UpdateBuilder<RegisteredPlayer, String> updateBuilder = this.playerDao.updateBuilder();
-        updateBuilder.where().eq(RegisteredPlayer.NICKNAME_FIELD, event.getUsername());
+        updateBuilder.where().eq(RegisteredPlayer.LOWERCASE_NICKNAME_FIELD, event.getUsername().toLowerCase(Locale.ROOT));
         updateBuilder.updateColumnValue(RegisteredPlayer.HASH_FIELD, "");
         updateBuilder.update();
       } catch (SQLException e) {
@@ -278,6 +273,7 @@ public class AuthListener {
     }
   }
 
+  /*
   static {
     try {
       DELEGATE_FIELD = MethodHandles.privateLookupIn(LoginInboundConnection.class, MethodHandles.lookup())
@@ -288,4 +284,5 @@ public class AuthListener {
       throw new ReflectionException(e);
     }
   }
+  */
 }

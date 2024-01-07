@@ -59,7 +59,7 @@ public class RegisteredPlayer {
   @DatabaseField(canBeNull = false, columnName = HASH_FIELD)
   private String hash = "";
 
-  @DatabaseField(columnName = IP_FIELD)
+  @DatabaseField(columnName = IP_FIELD, index = true)
   private String ip;
 
   @DatabaseField(columnName = UUID_TYPE_FIELD)

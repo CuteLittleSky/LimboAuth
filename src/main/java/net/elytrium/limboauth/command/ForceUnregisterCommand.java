@@ -35,7 +35,7 @@ import net.elytrium.limboauth.model.RegisteredPlayer;
 import net.elytrium.limboauth.model.SQLRuntimeException;
 import net.kyori.adventure.text.Component;
 
-public class ForceUnregisterCommand implements SimpleCommand {
+public class ForceUnregisterCommand extends RatelimitedCommand {
 
   private final LimboAuth plugin;
   private final ProxyServer server;
@@ -64,18 +64,16 @@ public class ForceUnregisterCommand implements SimpleCommand {
   }
 
   @Override
-  public void execute(SimpleCommand.Invocation invocation) {
-    CommandSource source = invocation.source();
-    String[] args = invocation.arguments();
-
+  public void execute(CommandSource source, String[] args) {
     if (args.length == 1) {
       String playerNick = args[0];
+      String usernameLowercased = playerNick.toLowerCase(Locale.ROOT);
 
       Serializer serializer = LimboAuth.getSerializer();
       try {
         this.plugin.getServer().getEventManager().fireAndForget(new AuthUnregisterEvent(playerNick));
         DeleteBuilder<RegisteredPlayer, String> deleteBuilder = this.playerDao.deleteBuilder();
-        deleteBuilder.where().eq(RegisteredPlayer.LOWERCASE_NICKNAME_FIELD, playerNick.toLowerCase(Locale.ROOT));
+        deleteBuilder.where().eq(RegisteredPlayer.LOWERCASE_NICKNAME_FIELD, usernameLowercased);
         deleteBuilder.delete();
         this.plugin.removePlayerFromCache(playerNick);
         this.server.getPlayer(playerNick).ifPresent(player -> player.disconnect(this.kick));

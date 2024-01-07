@@ -23,6 +23,7 @@ import com.velocitypowered.api.command.CommandSource;
 import com.velocitypowered.api.command.SimpleCommand;
 import com.velocitypowered.api.proxy.Player;
 import java.sql.SQLException;
+import java.util.Locale;
 import java.util.UUID;
 
 import net.elytrium.commons.kyori.serialization.Serializer;
@@ -35,7 +36,7 @@ import net.elytrium.limboauth.model.SQLRuntimeException;
 import net.elytrium.limboauth.model.UUIDType;
 import net.kyori.adventure.text.Component;
 
-public class ChangePasswordCommand implements SimpleCommand {
+public class ChangePasswordCommand extends RatelimitedCommand {
 
   private final LimboAuth plugin;
   private final Dao<RegisteredPlayer, String> playerDao;
@@ -63,13 +64,10 @@ public class ChangePasswordCommand implements SimpleCommand {
   }
 
   @Override
-  public void execute(SimpleCommand.Invocation invocation) {
-    CommandSource source = invocation.source();
-    String[] args = invocation.arguments();
-
+  public void execute(CommandSource source, String[] args) {
     if (source instanceof Player) {
       UUID uuid = ((Player) source).getUniqueId();
-      String username = ((Player) source).getUsername();
+      String usernameLowercase = ((Player) source).getUsername().toLowerCase(Locale.ROOT);
       RegisteredPlayer player = AuthSessionHandler.fetchInfo(this.playerDao, uuid);
 
       if (player == null) {
@@ -103,9 +101,6 @@ public class ChangePasswordCommand implements SimpleCommand {
         updateBuilder.where().eq(RegisteredPlayer.UUID_FIELD, uuid);
         updateBuilder.updateColumnValue(RegisteredPlayer.HASH_FIELD, newHash);
         updateBuilder.update();
-
-        this.plugin.removePlayerFromCache(username);
-
         this.plugin.getServer().getEventManager().fireAndForget(
             new ChangePasswordEvent(player, needOldPass ? args[0] : null, oldHash, newPassword, newHash));
 
