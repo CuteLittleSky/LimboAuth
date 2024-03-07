@@ -51,14 +51,14 @@ dependencies {
 
     compileOnly("com.velocitypowered:velocity-api:$velocityVersion")
     annotationProcessor("com.velocitypowered:velocity-api:$velocityVersion")
-    compileOnly("com.velocitypowered:velocity-proxy:$velocityVersion") // From Elytrium Repo.
-
+    // compileOnly("com.velocitypowered:velocity-proxy:$velocityVersion") // From Elytrium Repo.
+    compileOnly(files("$rootDir/libs/velocity-proxy-imc.jar"))
     // Needs for some velocity methods.
     compileOnly("io.netty:netty-codec:$nettyVersion")
     compileOnly("io.netty:netty-handler:$nettyVersion")
 
     compileOnly("org.geysermc.floodgate:api:$floodgateVersion")
-    compileOnly(files("libs/ProxyTransferCore-1.0-SNAPSHOT.jar"))
+    compileOnly(files("$rootDir/libs/ProxyTransferCore.jar"))
 
     implementation("at.favre.lib:bcrypt:0.9.0")
     implementation("dev.samstevens.totp:totp:1.7.1")

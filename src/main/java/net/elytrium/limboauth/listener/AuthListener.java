@@ -27,7 +27,9 @@ import com.velocitypowered.api.event.connection.DisconnectEvent;
 import com.velocitypowered.api.event.connection.PostLoginEvent;
 import com.velocitypowered.api.event.connection.PreLoginEvent;
 import com.velocitypowered.api.event.player.GameProfileRequestEvent;
+import com.velocitypowered.api.proxy.InboundConnection;
 import com.velocitypowered.api.util.UuidUtils;
+import com.velocitypowered.proxy.connection.MinecraftConnection;
 import net.elytrium.commons.kyori.serialization.Serializer;
 import net.elytrium.limboapi.api.event.LoginLimboRegisterEvent;
 import net.elytrium.limboauth.LimboAuth;
@@ -38,6 +40,8 @@ import net.elytrium.limboauth.model.RegisteredPlayer;
 import net.elytrium.limboauth.model.SQLRuntimeException;
 import net.elytrium.limboauth.model.UUIDType;
 import re.imc.proxytransfercore.ProxyTransferCore;
+import re.imc.proxytransfercore.listener.ConnectListener;
+import re.imc.proxytransfercore.utils.ReflectionUtils;
 
 import java.net.InetSocketAddress;
 import java.sql.SQLException;
@@ -59,11 +63,13 @@ public class AuthListener {
   private final Dao<RegisteredPlayer, String> playerDao;
   private final FloodgateApiHolder floodgateApi;
 
+  /*
   private final Cache<String, String> loginFailurePlayers = CacheBuilder
           .newBuilder()
           .expireAfterWrite(Duration.of(20, ChronoUnit.SECONDS))
           .build();
 
+   */
 
   public AuthListener(LimboAuth plugin, Dao<RegisteredPlayer, String> playerDao, FloodgateApiHolder floodgateApi) {
     this.plugin = plugin;
@@ -73,7 +79,13 @@ public class AuthListener {
 
   @Subscribe(order = PostOrder.FIRST)
   public void onPreLoginEvent(PreLoginEvent event) throws SQLException {
-    if (ProxyTransferCore.getInstance().getTransferredConnectionsUUID().getIfPresent(event.getConnection()) != null) {
+    InboundConnection connection = event.getConnection();
+    if (ConnectListener.INITIAL_CONNECTION_DELEGATE != null) {
+      connection = ReflectionUtils.getCastedValue(connection, ConnectListener.INITIAL_CONNECTION_DELEGATE);
+    }
+
+    MinecraftConnection mcConnection = (MinecraftConnection)ReflectionUtils.getValue(connection, ConnectListener.INITIAL_MINECRAFT_CONNECTION);
+    if (ProxyTransferCore.getInstance().getTransferredConnectionsUUID().getIfPresent(mcConnection) != null) {
       return;
     }
     if (event.getUsername().toLowerCase().startsWith(Settings.IMP.MAIN.BEDROCK_PREFIX.toLowerCase())) {
@@ -91,8 +103,9 @@ public class AuthListener {
       event.setResult(PreLoginEvent.PreLoginComponentResult.forceOfflineMode());
     } else {
       if (!event.getUsername().startsWith("OF_")) {
-
-        String lastName = loginFailurePlayers.getIfPresent(event.getConnection().getRemoteAddress().getHostName());
+        event.setResult(PreLoginEvent.PreLoginComponentResult.forceOnlineMode());
+        /*
+        String lastName = loginFailurePlayers.getIfPresent(event.getConnection().getRemoteAddress().getAddress().getHostAddress());
 
         event.setResult(PreLoginEvent.PreLoginComponentResult.forceOnlineMode());
 
@@ -108,19 +121,21 @@ public class AuthListener {
 
           event.setResult(PreLoginEvent.PreLoginComponentResult.forceOfflineMode());
           // event.setResult(PreLoginEvent.PreLoginComponentResult.denied(serializer.deserialize(MessageFormat.format(Settings.IMP.MAIN.STRINGS.NOT_PREMIUM, event.getUsername()))));
-          loginFailurePlayers.invalidate(event.getConnection().getRemoteAddress().getHostName());
+          loginFailurePlayers.invalidate(event.getConnection().getRemoteAddress().getAddress().getHostAddress());
           return;
         }
 
         plugin.getServer().getScheduler()
                 .buildTask(plugin, () -> {
                   if (!event.getConnection().isActive()) {
-                    loginFailurePlayers.put(event.getConnection().getRemoteAddress().getHostName(), event.getUsername());
+                    loginFailurePlayers.put(event.getConnection().getRemoteAddress().getAddress().getHostAddress(), event.getUsername());
                     plugin.getOnlineModeNames().remove(event.getUsername());
                   }
                 })
                 .delay(Duration.of(2, ChronoUnit.SECONDS))
                 .schedule();
+
+         */
       } else {
         event.setResult(PreLoginEvent.PreLoginComponentResult.forceOfflineMode());
       }
